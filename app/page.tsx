@@ -1,64 +1,25 @@
-export const dynamic = 'force-dynamic';
+import Link from 'next/link';
 
-export default async function SearchPage({ searchParams }: any) {
-  const params = await searchParams;
-  const originalQ = decodeURIComponent((params?.q || '').toString());
-  const page = parseInt(params?.page || '1');
-  
-  const DICT: any = {'الاقتصاد':'economics','اقتصاد':'economics'};
-  let term = originalQ.trim();
-  if (/[\u0600-\u06FF]/.test(term)) term = DICT[term] || 'economics';
-  if (!term) term = 'economics';
-
-  let papers: any[] = [];
-  let total = 0;
-
-  try {
-    const res = await fetch(
-      `https://api.openalex.org/works?search=${encodeURIComponent(term)}&page=${page}&per-page=20`,
-      {
-        headers: { 'User-Agent': 'RigorousResearch/1.0 (mailto:test@test.com)' },
-        cache: 'no-store'
-      }
-    );
-    const data = await res.json();
-    papers = data.results || [];
-    total = data.meta?.count || 0;
-  } catch (e) {
-    total = 0;
-  }
-
-  const totalPages = Math.min(Math.ceil(total / 20), 20);
-
+export default function Home(){
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
-      <h1 className="font-bold text-xl">نتائج: {originalQ} ({term}) ({total}) - صفحة {page}</h1>
+    <div>
+      <section className="max-w-7xl mx-auto px-6 py-24 text-center">
+        <h1 className="text-5xl font-extrabold leading-tight">ابحث في أكثر من <span className="text-blue-600">250 مليون</span> بحث علمي رصين</h1>
+        <p className="mt-6 text-lg text-gray-600">من OpenAlex, Semantic Scholar, PubMed, arXiv, CORE - مع تحميل PDF مباشر</p>
+        <form action="/search" className="mt-10 max-w-3xl mx-auto flex gap-2">
+          <input name="q" placeholder="مثال: machine learning in medicine..." className="flex-1 border rounded-xl px-5 py-4 text-lg shadow-sm" required/>
+          <button className="bg-blue-600 text-white px-8 rounded-xl font-bold">بحث</button>
+        </form>
+        <div className="mt-8 flex justify-center gap-6 text-sm text-gray-500"><span>250M+ Papers</span><span>5 Sources</span><span>PDF Download</span></div>
+      </section>
       
-      <div className="flex gap-8 mt-6">
-        <div className="w-56">
-          <h3 className="font-bold">Filters</h3>
-          <div className="text-sm mt-2"><input type="checkbox"/> Open Access only</div>
-          <div className="text-sm mt-2"><input type="checkbox"/> PDF Available</div>
-        </div>
-
-        <div className="flex-1">
-          {papers.map((p:any)=>(
-            <div key={p.id} className="border rounded-xl p-4 mb-3 bg-white">
-              <div className="font-bold">{p.display_name}</div>
-              <div className="text-xs text-gray-500">{p.publication_year} - {p.cited_by_count} citations</div>
-              {p.primary_location?.pdf_url && <a href={p.primary_location.pdf_url} target="_blank" className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full mt-2 inline-block">تحميل PDF</a>}
-            </div>
-          ))}
-
-          <div className="flex gap-2 justify-center mt-8 flex-wrap">
-            {Array.from({length: totalPages > 10 ? 10 : totalPages}, (_,i)=>{
-              const n = i+1;
-              return <a key={n} href={`/search?q=${encodeURIComponent(originalQ)}&page=${n}`} className={`w-8 h-8 flex items-center justify-center border rounded ${n===page ? 'bg-blue-600 text-white' : 'bg-white'}`}>{n}</a>
-            })}
-          </div>
-          <p className="text-center text-xs text-gray-400 mt-2">صفحة {page} من {totalPages}</p>
-        </div>
-      </div>
+      <section className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-4 pb-20">
+        {['Medicine','Engineering','Computer Science','Physics','Biology','Chemistry','Economics','Psychology','Law','Education'].map(c=>(
+          <Link key={c} href={`/search?q=${c}`} className="border rounded-xl p-6 hover:shadow-lg hover:border-blue-300 text-center font-medium bg-white transition">
+            {c}
+          </Link>
+        ))}
+      </section>
     </div>
   );
 }
