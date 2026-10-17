@@ -1,30 +1,45 @@
+export const dynamic = 'force-dynamic';
 
-import { Metadata } from 'next';
-type Props = { searchParams: { q?: string; page?: string } };
-export async function generateMetadata({ searchParams }: Props): Promise<Metadata>{
-  const q = searchParams.q||'scientific research';
-  return { title: `${q} - Search 250M+ Papers | Rigorous Research`, description: `Find ${q} in 250M+ peer-reviewed papers with PDF download` };
-}
-export default async function SearchPage({ searchParams }: Props){
-  const q = searchParams.q||''; const page = searchParams.page||'1';
+export default async function SearchPage({ searchParams }: any){
+  const params = await searchParams;
+  const qRaw = (params?.q || '').toString();
+  const page = parseInt(params?.page || '1');
+  const q = decodeURIComponent(qRaw).trim();
+
+  const DICT: any = { 'الاقتصاد':'economics','اقتصاد':'economics','الطب':'medicine','الهندسة':'engineering','حاسوب':'computer science' };
+  let term = q;
+  if(/[\u0600-\u06FF]/.test(q)) term = DICT[q] || DICT[q.replace('ال','')] || 'economics';
+  if(!term) term = 'economics';
+
   let papers: any[] = []; let total=0;
-  if(q){ try{ const base = process.env.NEXT_PUBLIC_BASE||''; const res = await fetch(`${base}/api/search?q=${encodeURIComponent(q)}&page=${page}`, { cache:'no-store' }); if(res.ok){ const d=await res.json(); papers=d.papers; total=d.total; } }catch{} }
-  return (
-    <div className="max-w-7xl mx-auto px-6 py-10 grid grid-cols-12 gap-6">
-      <aside className="col-span-3 hidden md:block border rounded-xl p-4 h-fit">
-        <h3 className="font-bold">Filters</h3><div className="mt-4 space-y-2 text-sm"><label className="flex gap-2"><input type="checkbox"/> Open Access only</label><label className="flex gap-2"><input type="checkbox"/> PDF Available</label></div>
-      </aside>
-      <section className="col-span-12 md:col-span-9">
-        <h1 className="text-2xl font-bold">نتائج: {q} ({papers.length})</h1>
-        <div className="mt-6 space-y-4">{papers.map((p:any)=>(
-          <div key={p.id} className="border rounded-xl p-5 hover:shadow">
-            <h2 className="font-bold text-lg"><a href={`/paper/${encodeURIComponent(p.id)}`}>{p.title}</a></h2>
-            <p className="text-sm text-gray-600">{p.authors?.map((a:any)=>a.name).join(', ')} • {p.year} • {p.citations} citations • {p.source}</p>
-            <p className="text-sm mt-2 line-clamp-2">{p.abstract||p.journal}</p>
-            <div className="mt-3 flex gap-2">{p.pdfUrl && <a href={`/api/download?url=${encodeURIComponent(p.pdfUrl)}`} className="bg-green-600 text-white text-sm px-4 py-2 rounded">📄 تحميل PDF</a>}<a href={`/paper/${encodeURIComponent(p.id)}`} className="border text-sm px-4 py-2 rounded">التفاصيل</a></div>
+  try{
+    const url = `https://api.openalex.org/works?search=${encodeURIComponent(term)}&page=${page}&per-page=20`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'RigorousResearch/1.0' }, cache: 'no-store' });
+    const data = await res.json();
+    papers = data.results || [];
+    total = data.meta?.count || 0;
+  }catch{ total=0; }
+
+  const totalPages = Math.min(Math.ceil(total/20), 20);
+
+  return(
+    <div className="max-w-7xl mx-auto px-6 py-10">
+      <h1 className="text-2xl font-bold">نتائج: {q} ({term}) ({total})</h1>
+      <div className="mt-6 space-y-4">
+        {papers.map((p:any)=>(
+          <div key={p.id} className="border rounded-xl p-5 bg-white hover:shadow">
+            <h2 className="font-bold text-lg">{p.display_name}</h2>
+            <p className="text-sm text-gray-600 mt-1">{p.publication_year} • {p.cited_by_count} citations • {p.primary_location?.source?.display_name}</p>
+            {(p.primary_location?.pdf_url || p.open_access?.oa_url) && <a href={p.primary_location?.pdf_url || p.open_access?.oa_url} target="_blank" className="mt-3 inline-block bg-blue-600 text-white text-sm px-4 py-2 rounded-full font-bold">📄 تحميل PDF</a>}
           </div>
-        ))}</div>
-      </section>
+        ))}
+      </div>
+      <div className="flex justify-center gap-2 mt-10 flex-wrap">
+        {Array.from({length: totalPages>10?10:totalPages}, (_,i)=>{
+          const n=i+1; return <a key={n} href={`/search?q=${encodeURIComponent(q)}&page=${n}`} className={`w-9 h-9 flex items-center justify-center border rounded-lg text-sm ${n===page?'bg-blue-600 text-white':'bg-white'}`}>{n}</a>
+        })}
+      </div>
+      <p className="text-center text-xs text-gray-400 mt-2">صفحة {page} من {totalPages}</p>
     </div>
   );
 }
